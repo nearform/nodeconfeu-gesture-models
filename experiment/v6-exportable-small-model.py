@@ -17,12 +17,7 @@ model.add(keras.Input(shape=(50, 4), name='acceleration'))
 model.add(MaskLastFeature())
 model.add(DirectionFeatures())
 
-model.add(MaskedConv(14, 1, padding='same'))
-model.add(keras.layers.Dropout(0.1))
-
-model.add(keras.layers.LayerNormalization(scale=False))
-model.add(keras.layers.Activation('relu'))
-model.add(MaskedConv(7, 3, padding='same'))
+model.add(MaskedConv(14, 3, padding='same'))
 model.add(keras.layers.Dropout(0.1))
 
 model.add(keras.layers.LayerNormalization(scale=False))
@@ -39,7 +34,7 @@ model.compile(optimizer=keras.optimizers.Adam(),
 
 history = model.fit(dataset.train.x, dataset.train.y,
                     batch_size=dataset.train.x.shape[0],
-                    epochs=1500,
+                    epochs=2486,
                     validation_data=(dataset.validation.x, dataset.validation.y))
 
 print(
@@ -53,7 +48,7 @@ print('making not quantized TFLite model')
 converter = tf.lite.TFLiteConverter.from_keras_model(model)
 tflite_model = converter.convert()
 print(f'not quantized size: {len(tflite_model) / 1024}KB')
-with open("exports/v5_not_quantized.tflite", "wb") as fp:
+with open("exports/v6_not_quantized.tflite", "wb") as fp:
     fp.write(tflite_model)
 
 print('making quantized TFLite model')
@@ -61,7 +56,7 @@ converter = tf.lite.TFLiteConverter.from_keras_model(model)
 converter.optimizations = [tf.lite.Optimize.OPTIMIZE_FOR_SIZE]
 tflite_model = converter.convert()
 print(f'quantized size: {len(tflite_model) / 1024}KB')
-with open("exports/v5_quantized.tflite", "wb") as fp:
+with open("exports/v6_quantized.tflite", "wb") as fp:
     fp.write(tflite_model)
 
 plot_history(history)
