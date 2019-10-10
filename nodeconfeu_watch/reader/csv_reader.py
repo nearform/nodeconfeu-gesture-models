@@ -14,7 +14,11 @@ class AccelerationDataset:
 
         parser = self._parse_csv(filepath)
         x, y = self._as_numpy(parser)
-        self.train, self.validation, self.test = self._stratified_split(x, y, test_ratio, validation_ratio)
+        (
+            self.train,
+            self.validation,
+            self.test
+        ) = self._stratified_split(x, y, test_ratio, validation_ratio)
 
     def _parse_csv(self, filepath):
         with open(filepath) as fp:
@@ -64,7 +68,8 @@ class AccelerationDataset:
             train_size = num_obs - (validation_size + test_size)
 
             if train_size <= 0:
-                raise ValueError('zero data remaining for training dataset')
+                raise ValueError(
+                    f'too few observations for {self.classnames[value]} to split dataset')
 
             # generate permutated indices
             indices = rng.permutation(num_obs)

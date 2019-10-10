@@ -2,26 +2,13 @@
 import sklearn.metrics
 import tensorflow as tf
 import tensorflow.keras as keras
+
 from nodeconfeu_watch.reader import AccelerationDataset
+from nodeconfeu_watch.layer import MaskLastFeature
 
-tf.random.set_seed(0)
+tf.random.set_seed(4)
 
-dataset = AccelerationDataset('./data/gestures-v1.csv')
-
-class MaskLastFeature(keras.layers.Layer):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.supports_masking = True
-
-    def compute_mask(self, inputs, mask=None):
-        return tf.math.not_equal(inputs[:, :, -1], 0)
-
-    def call(self, inputs):
-        return inputs[:, :, 0:-1]
-
-    def compute_output_shape(self, input_shape):
-        return (input_shape[0], input_shape[1], input_shape[2] - 1)
-
+dataset = AccelerationDataset('./data/gestures-v1.csv', test_ratio=0, validation_ratio=0.25)
 
 inputs = keras.Input(shape=(None, 4), name='acceleration')
 inputs_masked = MaskLastFeature()(inputs)
@@ -32,17 +19,18 @@ outputs = keras.layers.LSTM(5)(hidden)
 
 model = keras.Model(inputs=inputs, outputs=outputs)
 
-model.compile(optimizer=keras.optimizers.Adam(learning_rate=1e-2),
-              loss=keras.losses.SparseCategoricalCrossentropy(),
+model.compile(optimizer=keras.optimizers.Adam(learning_rate=5e-3),
+              loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
               metrics=[keras.metrics.SparseCategoricalAccuracy()])
 
 history = model.fit(dataset.train.x, dataset.train.y,
                     batch_size=dataset.train.x.shape[0],
-                    epochs=87,
+                    epochs=97,
                     validation_data=(dataset.validation.x, dataset.validation.y))
 
 print(
     sklearn.metrics.classification_report(
-        dataset.test.y, tf.argmax(model.predict(dataset.test.x), -1).numpy(),
+        dataset.validation.y,
+        tf.argmax(model.predict(dataset.validation.x), -1).numpy(),
         target_names=dataset.classnames)
 )
