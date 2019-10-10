@@ -10,8 +10,10 @@ setup(name='nodeconfeu_watch',
       packages=['nodeconfeu_watch'],
       install_requires=[
           'numpy',
+          'pandas',
+          'seaborn',
           'tensorflow',
-          'tensorflow_datasets'
+          'matplotlib'
       ],
       test_suite='nose.collector',
       tests_require=['nose'],
