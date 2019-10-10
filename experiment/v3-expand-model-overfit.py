@@ -23,6 +23,7 @@ model.add(keras.layers.LayerNormalization())
 model.add(keras.layers.Dropout(0.1))
 model.add(keras.layers.LSTM(25, return_sequences=True))
 model.add(keras.layers.LSTM(len(dataset.classnames)))
+model.add(keras.layers.Dense(len(dataset.classnames), use_bias=False))
 
 model.compile(optimizer=keras.optimizers.Adam(),
               loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
@@ -30,7 +31,7 @@ model.compile(optimizer=keras.optimizers.Adam(),
 
 history = model.fit(dataset.train.x, dataset.train.y,
                     batch_size=dataset.train.x.shape[0],
-                    epochs=274,
+                    epochs=200,
                     validation_data=(dataset.validation.x, dataset.validation.y))
 
 print(

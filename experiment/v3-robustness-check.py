@@ -26,6 +26,7 @@ for i in tqdm(range(10)):
     model.add(keras.layers.Dropout(0.1))
     model.add(keras.layers.LSTM(25, return_sequences=True))
     model.add(keras.layers.LSTM(len(dataset.classnames)))
+    model.add(keras.layers.Dense(len(dataset.classnames), use_bias=False))
 
     model.compile(optimizer=keras.optimizers.Adam(),
                 loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
@@ -33,8 +34,7 @@ for i in tqdm(range(10)):
 
     history = model.fit(dataset.train.x, dataset.train.y,
                         batch_size=dataset.train.x.shape[0],
-                        epochs=300,
-                        verbose=False,
+                        epochs=200,
                         validation_data=(dataset.validation.x, dataset.validation.y))
     all_history.append(history)
 
