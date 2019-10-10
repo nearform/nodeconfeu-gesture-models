@@ -9,28 +9,28 @@ from nodeconfeu_watch.visual import plot_history
 
 tf.random.set_seed(1)
 
-dataset = AccelerationDataset('./data/gestures-v1.csv', test_ratio=0, validation_ratio=0.25)
+dataset = AccelerationDataset('./data/gestures-v1.csv', test_ratio=0, validation_ratio=0.25,
+                              fixed_max_sequence_length=50)
 
 model = keras.Sequential()
-model.add(keras.Input(shape=(None, 4), name='acceleration'))
+model.add(keras.Input(shape=(50, 4), name='acceleration'))
 model.add(MaskLastFeature())
 model.add(DirectionFeatures())
 
-model.add(MaskedConv(25, 1, padding='same'))
+model.add(MaskedConv(14, 1, padding='same'))
+model.add(keras.layers.Dropout(0.1))
 
 model.add(keras.layers.LayerNormalization(scale=False))
 model.add(keras.layers.Activation('relu'))
-model.add(MaskedConv(25, 3, padding='same'))
+model.add(MaskedConv(7, 3, padding='same'))
+model.add(keras.layers.Dropout(0.1))
 
 model.add(keras.layers.LayerNormalization(scale=False))
 model.add(keras.layers.Activation('relu'))
-model.add(MaskedConv(10, 3, padding='same', dilation_rate=2))
+model.add(MaskedConv(5, 3, padding='same'))
+model.add(keras.layers.Dropout(0.1))
 
-model.add(keras.layers.LayerNormalization(scale=False))
-model.add(keras.layers.Activation('relu'))
-model.add(MaskedConv(10, 5, padding='same', dilation_rate=4))
-
-model.add(keras.layers.LSTM(10, use_bias=False))
+model.add(keras.layers.GlobalMaxPooling1D())
 model.add(keras.layers.Dense(len(dataset.classnames), use_bias=False))
 
 model.compile(optimizer=keras.optimizers.Adam(),
@@ -39,7 +39,7 @@ model.compile(optimizer=keras.optimizers.Adam(),
 
 history = model.fit(dataset.train.x, dataset.train.y,
                     batch_size=dataset.train.x.shape[0],
-                    epochs=200,
+                    epochs=1500,
                     validation_data=(dataset.validation.x, dataset.validation.y))
 
 print(
@@ -49,4 +49,20 @@ print(
         target_names=dataset.classnames)
 )
 
+print('making not quantized TFLite model')
+converter = tf.lite.TFLiteConverter.from_keras_model(model)
+tflite_model = converter.convert()
+print(f'not quantized size: {len(tflite_model) / 1024}KB')
+with open("exports/v5_not_quantized.tflite", "wb") as fp:
+    fp.write(tflite_model)
+
+print('making quantized TFLite model')
+converter = tf.lite.TFLiteConverter.from_keras_model(model)
+converter.optimizations = [tf.lite.Optimize.OPTIMIZE_FOR_SIZE]
+tflite_model = converter.convert()
+print(f'quantized size: {len(tflite_model) / 1024}KB')
+with open("exports/v5_quantized.tflite", "wb") as fp:
+    fp.write(tflite_model)
+
 plot_history(history)
+

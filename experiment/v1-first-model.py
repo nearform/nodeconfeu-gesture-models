@@ -12,7 +12,7 @@ tf.random.set_seed(0)
 dataset = AccelerationDataset('./data/gestures-v1.csv', test_ratio=0, validation_ratio=0.25)
 
 model = keras.Sequential()
-model.add(keras.Input(shape=(None, 4), name='acceleration'))
+model.add(keras.Input(shape=(50, 4), name='acceleration'))
 model.add(MaskLastFeature())
 model.add(keras.layers.Conv1D(10, 5, padding='causal'))
 model.add(keras.layers.LayerNormalization())

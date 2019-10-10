@@ -8,7 +8,9 @@ Dataset = namedtuple('Dataset', ['x', 'y'])
 class AccelerationDataset:
     def __init__(self, filepath, test_ratio=0.1, validation_ratio=0.1,
                  classnames=['nothing', 'clap2', 'upup', 'swiperight', 'swipeleft'],
+                 fixed_max_sequence_length=None,
                  seed=0):
+        self.fixed_max_sequence_length = fixed_max_sequence_length
         self.classnames = classnames
         self.seed = seed
 
@@ -38,6 +40,9 @@ class AccelerationDataset:
             max_sequence_length = max(max_sequence_length, input_data.shape[0])
             x_list.append(input_data)
             y_list.append(target_index)
+
+        if self.fixed_max_sequence_length is not None:
+            max_sequence_length = self.fixed_max_sequence_length
 
         x_numpy = np.stack([
             np.pad(
