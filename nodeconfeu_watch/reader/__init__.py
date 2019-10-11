@@ -1,2 +1,2 @@
 
-from .csv_reader import AccelerationDataset
+from .acceleration_reader import AccelerationReader

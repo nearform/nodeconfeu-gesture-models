@@ -3,14 +3,15 @@ import sklearn.metrics
 import tensorflow as tf
 import tensorflow.keras as keras
 
-from nodeconfeu_watch.reader import AccelerationDataset
+from nodeconfeu_watch.reader import AccelerationReader
 from nodeconfeu_watch.layer import MaskLastFeature, CastIntToFloat, DirectionFeatures, MaskedConv
 from nodeconfeu_watch.visual import plot_history
 
 tf.random.set_seed(1)
 
-dataset = AccelerationDataset('./data/gestures-v1.csv', test_ratio=0, validation_ratio=0.25,
-                              fixed_max_sequence_length=50)
+dataset = AccelerationReader('./data/gestures-v1', test_ratio=0, validation_ratio=0.25,
+                              max_sequence_length=50,
+                              classnames=['nothing', 'clap2', 'upup', 'swiperight', 'swipeleft'])
 
 model = keras.Sequential()
 model.add(keras.Input(shape=(50, 4), name='acceleration'))

@@ -4,11 +4,12 @@ import sklearn.metrics
 import tensorflow as tf
 import tensorflow.keras as keras
 
-from nodeconfeu_watch.reader import AccelerationDataset
+from nodeconfeu_watch.reader import AccelerationReader
 from nodeconfeu_watch.layer import MaskLastFeature, CastIntToFloat, DirectionFeatures, MaskedConv
 from nodeconfeu_watch.visual import plot_history_seeds
 
-dataset = AccelerationDataset('./data/gestures-v1.csv', test_ratio=0, validation_ratio=0.25)
+dataset = AccelerationReader('./data/gestures-v1', test_ratio=0, validation_ratio=0.25,
+                              classnames=['nothing', 'clap2', 'upup', 'swiperight', 'swipeleft'])
 all_history = []
 
 for i in tqdm(range(10)):
