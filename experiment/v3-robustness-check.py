@@ -5,7 +5,7 @@ import tensorflow as tf
 import tensorflow.keras as keras
 
 from nodeconfeu_watch.reader import AccelerationDataset
-from nodeconfeu_watch.layer import MaskLastFeature, DirectionFeatures, MaskedConv
+from nodeconfeu_watch.layer import MaskLastFeature, CastIntToFloat, DirectionFeatures, MaskedConv
 from nodeconfeu_watch.visual import plot_history_seeds
 
 dataset = AccelerationDataset('./data/gestures-v1.csv', test_ratio=0, validation_ratio=0.25)
@@ -17,6 +17,7 @@ for i in tqdm(range(10)):
     model = keras.Sequential()
     model.add(keras.Input(shape=(None, 4), name='acceleration'))
     model.add(MaskLastFeature())
+    model.add(CastIntToFloat())
     model.add(DirectionFeatures())
     model.add(MaskedConv(50, 5, padding='causal'))
     model.add(keras.layers.LayerNormalization())

@@ -29,8 +29,8 @@ class AccelerationDataset:
                 name = name_and_length.split('(')[0]
 
                 yield (
-                    np.fromiter(map(int, values), 'int8').reshape(-1, 3),
-                    self.classnames.index(name)
+                    np.fromiter(map(int, values), dtype='int8').reshape(-1, 3),
+                    np.asarray(self.classnames.index(name), dtype='int32')
                 )
 
     def _as_numpy(self, parser):
@@ -46,12 +46,12 @@ class AccelerationDataset:
 
         x_numpy = np.stack([
             np.pad(
-                np.hstack([x, np.ones((x.shape[0], 1), dtype='float32')]),
+                np.hstack([x, np.ones((x.shape[0], 1), dtype=x.dtype)]),
                 [(0, max_sequence_length - x.shape[0]), (0, 0)],
                 'constant')
             for x in x_list
         ])
-        y_numpy = np.asarray(y_list, 'int32')
+        y_numpy = np.asarray(y_list)
 
         return (x_numpy, y_numpy)
 
