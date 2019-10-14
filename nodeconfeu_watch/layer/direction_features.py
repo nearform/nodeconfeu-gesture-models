@@ -8,9 +8,9 @@ class DirectionFeatures(keras.layers.Layer):
         self.supports_masking = True
 
     def call(self, inputs):
-        xy = tf.expand_dims(tf.sqrt(inputs[..., 0]**2 + inputs[..., 1]**2), -1)
-        xz = tf.expand_dims(tf.sqrt(inputs[..., 0]**2 + inputs[..., 2]**2), -1)
-        yz = tf.expand_dims(tf.sqrt(inputs[..., 1]**2 + inputs[..., 2]**2), -1)
+        xy = tf.expand_dims(tf.sqrt(inputs[:, :, 0]**2 + inputs[:, :, 1]**2), -1)
+        xz = tf.expand_dims(tf.sqrt(inputs[:, :, 0]**2 + inputs[:, :, 2]**2), -1)
+        yz = tf.expand_dims(tf.sqrt(inputs[:, :, 1]**2 + inputs[:, :, 2]**2), -1)
         xyz = tf.norm(inputs, axis=-1, keepdims=1)
 
         return tf.concat(

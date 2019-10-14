@@ -9,8 +9,7 @@ class MaskedConv(keras.layers.Layer):
         self.supports_masking = True
 
     def call(self, inputs, mask=None):
-        masked_inputs = tf.where(tf.expand_dims(mask, -1), inputs, tf.constant(0, dtype=inputs.dtype))
-        return self.conv(masked_inputs)
+        return self.conv(inputs)
 
     def compute_output_shape(self, input_shape):
-        return input_shape
+        return self.conv.compute_output_shape(input_shape)

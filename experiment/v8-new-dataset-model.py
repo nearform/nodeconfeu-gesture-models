@@ -9,14 +9,14 @@ from nodeconfeu_watch.visual import plot_history
 
 tf.random.set_seed(1)
 
-dataset = AccelerationReader('./data/gestures-v1', test_ratio=0, validation_ratio=0.25,
+dataset = AccelerationReader('./data/gestures-v2', test_ratio=0.2, validation_ratio=0.2,
                               max_sequence_length=50,
-                              classnames=['nothing', 'clap2', 'upup', 'swiperight', 'swipeleft'])
+                              classnames=['swiperight', 'swipeleft', 'upup', 'waggle', 'clap2'],
+                              input_dtype='float32')
 
 model = keras.Sequential()
-model.add(keras.Input(shape=(50, 4), name='acceleration'))
+model.add(keras.Input(shape=(50, 4), name='acceleration', dtype=dataset.train.x.dtype))
 model.add(MaskLastFeature())
-model.add(CastIntToFloat(normalize_factor=16))
 model.add(DirectionFeatures())
 
 model.add(MaskedConv(14, 5, padding='same'))
@@ -33,8 +33,8 @@ model.compile(optimizer=keras.optimizers.Adam(),
               loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
               metrics=[keras.metrics.SparseCategoricalAccuracy()])
 history = model.fit(dataset.train.x, dataset.train.y,
-                    batch_size=dataset.train.x.shape[0],
-                    epochs=781,
+                    batch_size=64,
+                    epochs=100,
                     validation_data=(dataset.validation.x, dataset.validation.y))
 
 print(
@@ -48,7 +48,7 @@ print('making not quantized TFLite model')
 converter = tf.lite.TFLiteConverter.from_keras_model(model)
 tflite_model = converter.convert()
 print(f'not quantized size: {len(tflite_model) / 1024}KB')
-with open("exports/v7_not_quantized.tflite", "wb") as fp:
+with open("exports/v8_not_quantized.tflite", "wb") as fp:
     fp.write(tflite_model)
 
 print('making quantized TFLite model')
@@ -56,8 +56,7 @@ converter = tf.lite.TFLiteConverter.from_keras_model(model)
 converter.optimizations = [tf.lite.Optimize.OPTIMIZE_FOR_SIZE]
 tflite_model = converter.convert()
 print(f'quantized size: {len(tflite_model) / 1024}KB')
-with open("exports/v7_quantized.tflite", "wb") as fp:
+with open("exports/v8_quantized.tflite", "wb") as fp:
     fp.write(tflite_model)
 
 plot_history(history)
-

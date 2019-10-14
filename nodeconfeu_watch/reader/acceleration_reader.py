@@ -14,9 +14,13 @@ class AccelerationReader:
     def __init__(self, dirname, test_ratio=0.1, validation_ratio=0.1,
                  classnames=None,
                  max_sequence_length=None,
+                 input_dtype='int8',
+                 output_dtype='int32',
                  seed=0):
         self.dirname = dirname
         self.seed = seed
+        self.input_dtype = input_dtype
+        self.output_dtype = output_dtype
 
         filepaths = [
             path.join(dirname, filename) \
@@ -104,8 +108,8 @@ class AccelerationReader:
 
                     name_and_length, *values = map(str.strip, line.split(','))
                     yield (
-                        np.fromiter(map(int, values), dtype='int8').reshape(-1, 3),
-                        np.asarray(self.classnames.index(name), dtype='int32')
+                        np.fromiter(map(int, values), dtype=self.input_dtype).reshape(-1, 3),
+                        np.asarray(self.classnames.index(name), dtype=self.output_dtype)
                     )
 
     def _as_numpy(self, parser):
