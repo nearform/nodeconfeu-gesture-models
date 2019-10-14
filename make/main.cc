@@ -13,21 +13,45 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "sine_model_data.h"
+#include <stdio.h>
+
 #include "tensorflow/lite/experimental/micro/kernels/all_ops_resolver.h"
 #include "tensorflow/lite/experimental/micro/micro_error_reporter.h"
 #include "tensorflow/lite/experimental/micro/micro_interpreter.h"
 #include "tensorflow/lite/schema/schema_generated.h"
 #include "tensorflow/lite/version.h"
 
+unsigned char* read_file(char* filepath) {
+  // get file size
+  FILE * file = fopen(filepath, "r+");
+  if (file == nullptr) return nullptr;
+  fseek(file, 0, SEEK_END);
+  long int size = ftell(file);
+  fclose(file);
+
+  // Reading data to array of unsigned chars
+  file = fopen(filepath, "r+");
+  unsigned char* content = (unsigned char *) malloc(size);
+  fread(content, sizeof(unsigned char), size, file);
+  fclose(file);
+
+  return content;
+}
+
 int main(int argc, char* argv[]) {
   // Set up logging
   tflite::MicroErrorReporter micro_error_reporter;
   tflite::ErrorReporter* error_reporter = &micro_error_reporter;
 
+  if (argc != 2) {
+    error_reporter->Report("./bad call. Usage: program file.tflite\n");
+  }
+
   // Map the model into a usable data structure. This doesn't involve any
   // copying or parsing, it's a very lightweight operation.
-  const tflite::Model* model = ::tflite::GetModel(g_sine_model_data);
+  // const model_def = read_file()
+  const unsigned char* model_data = read_file(argv[1]);
+  const tflite::Model* model = ::tflite::GetModel(model_data);
   if (model->version() != TFLITE_SCHEMA_VERSION) {
     error_reporter->Report(
         "Model provided is schema version %d not equal "
@@ -55,20 +79,20 @@ int main(int argc, char* argv[]) {
   TfLiteTensor* output = interpreter.output(0);
 
   // Place our calculated x value in the model's input tensor
-  float x_val = 0;
-  input->data.f[0] = 0;
+  // float x_val = 0;
+  // input->data.f[0] = x_val;
 
   // Run inference, and report any error
   TfLiteStatus invoke_status = interpreter.Invoke();
   if (invoke_status != kTfLiteOk) {
-    error_reporter->Report("Invoke failed on x_val: %f\n", x_val);
+    error_reporter->Report("Invoke failed\n");
     exit(1);
   }
 
   // Read the predicted y value from the model's output tensor
-  float y_val = output->data.f[0];
+  // float y_val = output->data.f[0];
 
   // Output the results. A custom HandleOutput function can be implemented
   // for each supported hardware target.
-  error_reporter->Report("x_value: %f, y_value: %f\n", x_val, y_val);
+  // error_reporter->Report("x_value: %f, y_value: %f\n", x_val, y_val);
 }

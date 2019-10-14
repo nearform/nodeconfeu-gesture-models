@@ -12,7 +12,7 @@ SRCS := \
 	tensorflow/lite/core/api/error_reporter.cc tensorflow/lite/core/api/flatbuffer_conversions.cc \
 	tensorflow/lite/core/api/op_resolver.cc tensorflow/lite/kernels/kernel_util.cc \
 	tensorflow/lite/kernels/internal/quantization_util.cc \
-	main.cc sine_model_data.cc
+	main.cc
 
 OBJS := \
 $(patsubst %.cc,%.o,$(patsubst %.c,%.o,$(SRCS)))
