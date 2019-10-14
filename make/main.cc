@@ -20,19 +20,6 @@ limitations under the License.
 #include "tensorflow/lite/schema/schema_generated.h"
 #include "tensorflow/lite/version.h"
 
-// This constant represents the range of x values our model was trained on,
-// which is from 0 to (2 * Pi). We approximate Pi to avoid requiring additional
-// libraries.
-const float kXrange = 2.f * 3.14159265359f;
-
-// This constant determines the number of inferences to perform across the range
-// of x values defined above. Since each inference takes time, the higher this
-// number, the more time it will take to run through the entire range. The value
-// of this constant can be tuned so that one full cycle takes a desired amount
-// of time. Since different devices take different amounts of time to perform
-// inference, this value should be defined per-device.
-extern const int kInferencesPerCycle = 20;
-
 int main(int argc, char* argv[]) {
   // Set up logging
   tflite::MicroErrorReporter micro_error_reporter;
@@ -53,7 +40,7 @@ int main(int argc, char* argv[]) {
 
   // Create an area of memory to use for input, output, and intermediate arrays.
   // Finding the minimum value for your model may require some trial and error.
-  const int tensor_arena_size = 2 * 1024;
+  const int tensor_arena_size = 60 * 1024;
   uint8_t tensor_arena[tensor_arena_size];
 
   // Build an interpreter to run the model with
@@ -67,39 +54,21 @@ int main(int argc, char* argv[]) {
   TfLiteTensor* input = interpreter.input(0);
   TfLiteTensor* output = interpreter.output(0);
 
-  // Keep track of how many inferences we have performed
-  int inference_count = 0;
+  // Place our calculated x value in the model's input tensor
+  float x_val = 0;
+  input->data.f[0] = 0;
 
-  // Loop indefinitely
-  while (true) {
-    // Calculate an x value to feed into the model. We compare the current
-    // inference_count to the number of inferences per cycle to determine
-    // our position within the range of possible x values the model was
-    // trained on, and use this to calculate a value.
-    float position = static_cast<float>(inference_count) /
-                     static_cast<float>(kInferencesPerCycle);
-    float x_val = position * kXrange;
-
-    // Place our calculated x value in the model's input tensor
-    input->data.f[0] = x_val;
-
-    // Run inference, and report any error
-    TfLiteStatus invoke_status = interpreter.Invoke();
-    if (invoke_status != kTfLiteOk) {
-      error_reporter->Report("Invoke failed on x_val: %f\n", x_val);
-      continue;
-    }
-
-    // Read the predicted y value from the model's output tensor
-    float y_val = output->data.f[0];
-
-    // Output the results. A custom HandleOutput function can be implemented
-    // for each supported hardware target.
-    error_reporter->Report("x_value: %f, y_value: %f\n", x_val, y_val);
-
-    // Increment the inference_counter, and reset it if we have reached
-    // the total number per cycle
-    inference_count += 1;
-    if (inference_count >= kInferencesPerCycle) inference_count = 0;
+  // Run inference, and report any error
+  TfLiteStatus invoke_status = interpreter.Invoke();
+  if (invoke_status != kTfLiteOk) {
+    error_reporter->Report("Invoke failed on x_val: %f\n", x_val);
+    exit(1);
   }
+
+  // Read the predicted y value from the model's output tensor
+  float y_val = output->data.f[0];
+
+  // Output the results. A custom HandleOutput function can be implemented
+  // for each supported hardware target.
+  error_reporter->Report("x_value: %f, y_value: %f\n", x_val, y_val);
 }
