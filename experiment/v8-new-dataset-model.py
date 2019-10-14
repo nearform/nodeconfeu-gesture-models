@@ -4,7 +4,7 @@ import tensorflow as tf
 import tensorflow.keras as keras
 
 from nodeconfeu_watch.reader import AccelerationReader
-from nodeconfeu_watch.layer import MaskLastFeature, CastIntToFloat, DirectionFeatures, MaskedConv
+from nodeconfeu_watch.layer import MaskLastFeature, GlobalMaxPooling, DirectionFeatures, MaskedConv
 from nodeconfeu_watch.visual import plot_history
 
 tf.random.set_seed(1)
@@ -16,8 +16,8 @@ dataset = AccelerationReader('./data/gestures-v2', test_ratio=0.2, validation_ra
 
 model = keras.Sequential()
 model.add(keras.Input(shape=(50, 4), name='acceleration', dtype=dataset.train.x.dtype))
-model.add(MaskLastFeature())
-model.add(DirectionFeatures())
+#model.add(MaskLastFeature())
+#model.add(DirectionFeatures())
 
 model.add(MaskedConv(14, 5, padding='same'))
 model.add(keras.layers.Dropout(0.2))
@@ -26,7 +26,7 @@ model.add(keras.layers.Activation('relu'))
 model.add(MaskedConv(len(dataset.classnames), 3, padding='same', dilation_rate=2))
 model.add(keras.layers.Dropout(0.1))
 
-model.add(keras.layers.GlobalMaxPooling1D())
+model.add(GlobalMaxPooling())
 model.add(keras.layers.Dense(len(dataset.classnames), use_bias=False))
 
 model.compile(optimizer=keras.optimizers.Adam(),
