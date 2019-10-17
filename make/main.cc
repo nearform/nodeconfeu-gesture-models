@@ -79,9 +79,11 @@ int main(int argc, char* argv[]) {
   TfLiteTensor* input = interpreter.input(0);
   TfLiteTensor* output = interpreter.output(0);
 
-  // Place our calculated x value in the model's input tensor
-  // float x_val = 0;
-  // input->data.f[0] = x_val;
+  // Fill data with zero
+  size_t num_input_elements = input->bytes / sizeof(float);
+  for (size_t i = 0; i < num_input_elements; i++) {
+    input->data.f[i] = 0.0;
+  }
 
   // Run inference, and report any error
   TfLiteStatus invoke_status = interpreter.Invoke();
@@ -91,8 +93,8 @@ int main(int argc, char* argv[]) {
   }
 
   // Read the predicted y value from the model's output tensor
-  size_t elements = output->bytes / sizeof(float);
-  for (size_t i = 0; i < elements; i++) {
+  size_t num_output_elements = output->bytes / sizeof(float);
+  for (size_t i = 0; i < num_output_elements; i++) {
     error_reporter->Report("output[%d] = %f\n", i, output->data.f[i]);
   }
 }
