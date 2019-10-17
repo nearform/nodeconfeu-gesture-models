@@ -21,6 +21,7 @@ limitations under the License.
 #include "tensorflow/lite/schema/schema_generated.h"
 #include "tensorflow/lite/version.h"
 
+
 unsigned char* read_file(char* filepath) {
   // get file size
   FILE * file = fopen(filepath, "r+");
@@ -90,9 +91,8 @@ int main(int argc, char* argv[]) {
   }
 
   // Read the predicted y value from the model's output tensor
-  // float y_val = output->data.f[0];
-
-  // Output the results. A custom HandleOutput function can be implemented
-  // for each supported hardware target.
-  // error_reporter->Report("x_value: %f, y_value: %f\n", x_val, y_val);
+  size_t elements = output->bytes / sizeof(float);
+  for (size_t i = 0; i < elements; i++) {
+    error_reporter->Report("output[%d] = %f\n", i, output->data.f[i]);
+  }
 }
