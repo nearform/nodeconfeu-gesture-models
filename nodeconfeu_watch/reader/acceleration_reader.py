@@ -149,7 +149,7 @@ class AccelerationReader:
 
             # calculate dataset sizes
             validation_size = math.ceil(num_obs * validation_ratio)
-            test_size = math.ceil(num_obs * validation_ratio)
+            test_size = math.ceil(num_obs * test_ratio)
             train_size = num_obs - (validation_size + test_size)
 
             if train_size <= 0:
