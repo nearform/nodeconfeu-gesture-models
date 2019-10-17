@@ -15,11 +15,13 @@ class AccelerationReader:
                  classnames=None,
                  max_sequence_length=None,
                  input_dtype='int8',
+                 input_shape='1d',
                  output_dtype='int32',
                  seed=0):
         self.dirname = dirname
         self.seed = seed
         self.input_dtype = input_dtype
+        self.input_shape = input_shape
         self.output_dtype = output_dtype
 
         filepaths = [
@@ -54,6 +56,7 @@ class AccelerationReader:
             f"  properties:\n"
             f"    seed: {self.seed}\n"
             f"    dirname: {self.dirname}\n"
+            f"    input_shape: {self.input_shape}\n"
             f"    max_sequence_length: {self.max_sequence_length}\n"
             f"\n"
             f"  observations:\n"
@@ -126,6 +129,9 @@ class AccelerationReader:
             for x in x_list
         ])
         y_numpy = np.asarray(y_list)
+
+        if self.input_shape == '2d':
+            x_numpy = x_numpy[:, :, np.newaxis, :]
 
         return (x_numpy, y_numpy)
 

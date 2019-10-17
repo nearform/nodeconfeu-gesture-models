@@ -1,4 +1,5 @@
 
+import numpy as np
 import sklearn.metrics
 import tensorflow as tf
 import tensorflow.keras as keras
@@ -18,17 +19,17 @@ dataset = AccelerationReader('./data/gestures-v2', test_ratio=0.2, validation_ra
 model = keras.Sequential()
 model.add(keras.Input(shape=(50, 1, 4), name='acceleration', dtype=dataset.train.x.dtype))
 
-model.add(keras.layers.Conv2D(14, (5, 1), padding='same', activation='relu'))
-model.add(keras.layers.Dropout(0.2))
-
-model.add(keras.layers.Conv2D(len(dataset.classnames), (3, 1), padding='same', dilation_rate=2))
-model.add(keras.layers.Dropout(0.1))
-
-model.add(GlobalMaxPooling())
-model.add(keras.layers.Dense(len(dataset.classnames), use_bias=False))
+model.add(keras.layers.DepthwiseConv2D((4, 1), depth_multiplier=8, activation='relu'))
+model.add(keras.layers.MaxPool2D((3, 1)))
+model.add(keras.layers.Conv2D(16, (4, 1), activation='relu'))
+model.add(keras.layers.MaxPool2D((3, 1)))
+model.add(keras.layers.Flatten())
+model.add(keras.layers.Dense(16, activation='relu'))
+model.add(keras.layers.Dense(len(dataset.classnames)))
+model.add(keras.layers.Softmax())
 
 model.compile(optimizer=keras.optimizers.Adam(),
-              loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+              loss=keras.losses.SparseCategoricalCrossentropy(),
               metrics=[keras.metrics.SparseCategoricalAccuracy()])
 history = model.fit(dataset.train.x, dataset.train.y,
                     batch_size=64,
@@ -46,15 +47,26 @@ print('making not quantized TFLite model')
 converter = tf.lite.TFLiteConverter.from_keras_model(model)
 tflite_model = converter.convert()
 print(f'not quantized size: {len(tflite_model) / 1024}KB')
-with open("exports/v8_not_quantized.tflite", "wb") as fp:
+with open("exports/v9_not_quantized.tflite", "wb") as fp:
     fp.write(tflite_model)
 
 print('making quantized TFLite model')
-converter = tf.lite.TFLiteConverter.from_keras_model(model)
-converter.optimizations = [tf.lite.Optimize.OPTIMIZE_FOR_SIZE]
+model.save('temo_model.h5')
+converter = tf.compat.v1.lite.TFLiteConverter.from_keras_model_file('temo_model.h5')
+
+converter.optimizations = [tf.lite.Optimize.DEFAULT]
+def representative_data_gen():
+    indices = np.random.permutation(dataset.validation.x.shape[0])[:10]
+    for input_value in dataset.validation.x[indices, ...]:
+        yield [input_value[np.newaxis, :, :, :]]
+converter.representative_dataset = representative_data_gen
+converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
+converter.inference_input_type = tf.uint8
+converter.inference_output_type = tf.uint8
+
 tflite_model = converter.convert()
 print(f'quantized size: {len(tflite_model) / 1024}KB')
-with open("exports/v8_quantized.tflite", "wb") as fp:
+with open("exports/v9_quantized.tflite", "wb") as fp:
     fp.write(tflite_model)
 
 plot_history(history)
