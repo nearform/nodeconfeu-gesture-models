@@ -1,10 +1,10 @@
 
-import matplotlib.pyplot as plt
-import seaborn as sns
 import numpy as np
 import pandas as pd
 
 def plot_history_seeds(all_history, autoshow=True):
+    import matplotlib.pyplot as plt
+    import seaborn as sns
     sns.set()
 
     df_list = []
@@ -41,6 +41,8 @@ def plot_history_seeds(all_history, autoshow=True):
         plt.show()
 
 def plot_history(history, autoshow=True):
+    import matplotlib.pyplot as plt
+    import seaborn as sns
     sns.set()
 
     df = pd.DataFrame(history.history)
