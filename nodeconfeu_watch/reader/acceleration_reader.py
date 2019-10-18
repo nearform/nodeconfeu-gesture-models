@@ -13,9 +13,9 @@ extract_name_and_length = re.compile(r'^([A-Z0-9]+)\(([0-9]+)\),', flags=re.IGNO
 class AccelerationReader:
     def __init__(self, dirname, test_ratio=0.1, validation_ratio=0.1,
                  classnames=None,
-                 max_sequence_length=None,
-                 input_dtype='int8',
-                 input_shape='1d',
+                 max_sequence_length=50,
+                 input_dtype='float32',
+                 input_shape='2d',
                  output_dtype='int32',
                  seed=0):
         self.dirname = dirname

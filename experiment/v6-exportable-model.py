@@ -4,19 +4,19 @@ import tensorflow as tf
 import tensorflow.keras as keras
 
 from nodeconfeu_watch.reader import AccelerationReader
-from nodeconfeu_watch.layer import MaskLastFeature, CastIntToFloat, DirectionFeatures, MaskedConv
-from nodeconfeu_watch.visual import plot_history
+from nodeconfeu_watch.layer import MaskLastFeature, DirectionFeatures, MaskedConv
+from nodeconfeu_watch.visual import plot_history, classification_report
+from nodeconfeu_watch.convert import ExportModel
 
-tf.random.set_seed(1)
+tf.random.set_seed(0)
 
 dataset = AccelerationReader('./data/gestures-v1', test_ratio=0, validation_ratio=0.25,
-                              max_sequence_length=50,
-                              classnames=['nothing', 'clap2', 'upup', 'swiperight', 'swipeleft'])
+                              classnames=['nothing', 'clap2', 'upup', 'swiperight', 'swipeleft'],
+                              input_shape='1d')
 
 model = keras.Sequential()
 model.add(keras.Input(shape=(50, 4), name='acceleration'))
 model.add(MaskLastFeature())
-model.add(CastIntToFloat())
 model.add(DirectionFeatures())
 
 model.add(MaskedConv(14, 5, padding='same'))
@@ -38,27 +38,11 @@ history = model.fit(dataset.train.x, dataset.train.y,
                     epochs=488,
                     validation_data=(dataset.validation.x, dataset.validation.y))
 
-print(
-    sklearn.metrics.classification_report(
-        dataset.validation.y,
-        tf.argmax(model.predict(dataset.validation.x), -1).numpy(),
-        target_names=dataset.classnames)
-)
+print('')
+print('Raw model performance on validation dataset')
+print(classification_report(model, dataset, subset='validation'))
 
-print('making not quantized TFLite model')
-converter = tf.lite.TFLiteConverter.from_keras_model(model)
-tflite_model = converter.convert()
-print(f'not quantized size: {len(tflite_model) / 1024}KB')
-with open("exports/v6_not_quantized.tflite", "wb") as fp:
-    fp.write(tflite_model)
-
-print('making quantized TFLite model')
-converter = tf.lite.TFLiteConverter.from_keras_model(model)
-converter.optimizations = [tf.lite.Optimize.OPTIMIZE_FOR_SIZE]
-tflite_model = converter.convert()
-print(f'quantized size: {len(tflite_model) / 1024}KB')
-with open("exports/v6_quantized.tflite", "wb") as fp:
-    fp.write(tflite_model)
+exporter = ExportModel(model, dataset, quantize=False, assert_export=False)
+exporter.save('exports/v8.noquant.tflite')
 
 plot_history(history)
-

@@ -13,7 +13,8 @@ setup(name='nodeconfeu_watch',
           'pandas',
           'seaborn',
           'tensorflow',
-          'matplotlib'
+          'matplotlib',
+          'flatbuffers'
       ],
       test_suite='nose.collector',
       tests_require=['nose'],

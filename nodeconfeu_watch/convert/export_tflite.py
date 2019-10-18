@@ -105,11 +105,12 @@ def _validate_flatbuffer_for_tflite_micro(model_bytes):
 
 
 class ExportModel:
-    def __init__(self, model, dataset, quantize=True):
+    def __init__(self, model, dataset, quantize=True, assert_export=True):
         self._quantize = quantize
         self._model_bytes = _export_model(model, dataset, quantize)
-        self.evaluate_zeros_input()
-        _validate_flatbuffer_for_tflite_micro(self._model_bytes)
+        if assert_export:
+            self.evaluate_zeros_input()
+            _validate_flatbuffer_for_tflite_micro(self._model_bytes)
 
     def size(self):
         return len(self._model_bytes)

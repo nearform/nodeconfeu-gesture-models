@@ -10,7 +10,7 @@ class MaskedConv(keras.layers.Layer):
 
     def call(self, inputs, mask=None):
         if mask is not None:
-            inputs = tf.where(tf.expand_dims(mask, -1), inputs, 0)
+            inputs = tf.where(tf.expand_dims(mask, -1), inputs, tf.zeros_like(inputs))
         return self.conv(inputs)
 
     def compute_output_shape(self, input_shape):
