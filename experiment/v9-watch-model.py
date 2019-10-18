@@ -38,8 +38,20 @@ print(classification_report(model, dataset, subset='validation'))
 
 exporter = ExportModel(model, dataset, quantize=False)
 print('')
+print('Not-quantized model performance on test dataset')
+print(classification_report(model, dataset, subset='test'))
+
+print('')
+print(exporter.size_report())
+exporter.save('exports/v9.noquant.tflite')
+
+exporter = ExportModel(model, dataset, quantize=True)
+print('')
 print('Quantized model performance on test dataset')
 print(classification_report(model, dataset, subset='test'))
 
-exporter.save('exports/v9.noquant.tflite')
+print('')
+print(exporter.size_report())
+exporter.save('exports/v9.quant.tflite')
+
 plot_history(history)

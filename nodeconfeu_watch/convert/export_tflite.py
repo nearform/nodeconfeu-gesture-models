@@ -1,15 +1,37 @@
 
+import math
 import numpy as np
 import tensorflow as tf
 
 from .tflite_schema import Model as tflite_schema_model
 from .tflite_schema import BuiltinOperator as tflite_schema_builtin_operator
+from .tflite_schema import TensorType as tflite_schema_tensor_type
 
 builtin_operator_code_lookup = {
     code: name
     for name, code
     in vars(tflite_schema_builtin_operator.BuiltinOperator).items()
     if not name.startswith('_')
+}
+
+tensor_type_code_lookup = {
+    code: name
+    for name, code
+    in vars(tflite_schema_tensor_type.TensorType).items()
+    if not name.startswith('_')
+}
+
+tensor_type_bits = {
+  "FLOAT32": 32,
+  "FLOAT16": 16,
+  "INT32": 32,
+  "UINT8": 8,
+  "INT64": 64,
+  "STRING": np.nan,
+  "BOOL": 1,
+  "INT16": 16,
+  "COMPLEX64": 64,
+  "INT8": 8
 }
 
 builtin_operator_version_support = {
@@ -112,8 +134,36 @@ class ExportModel:
             self.evaluate_zeros_input()
             _validate_flatbuffer_for_tflite_micro(self._model_bytes)
 
-    def size(self):
+    def modelsize(self):
         return len(self._model_bytes)
+
+    def areasize(self):
+        total_areasize = 0
+        model = tflite_schema_model.Model.GetRootAsModel(bytearray(self._model_bytes), 0)
+
+        graph = model.Subgraphs(0)
+        for tensor_index in range(graph.TensorsLength()):
+            tensor = graph.Tensors(tensor_index)
+            tensor_shape = tensor.ShapeAsNumpy()
+            tensor_type = tensor_type_code_lookup[tensor.Type()]
+
+            tensor_size_bits = np.prod(tensor_shape) * tensor_type_bits[tensor_type]
+            tensor_size_bytes = math.ceil(tensor_size_bits / 32) * 4 # round up to nearst 32bit-word
+            total_areasize += tensor_size_bytes
+
+        return total_areasize
+
+    def size_report(self):
+        modelsize = self.modelsize()
+        areasize = self.areasize()
+        total = modelsize + areasize
+
+        return (
+            f'{"Quantized" if self._quantize else "Not-quantized"} model\n'
+            f'  modelsize {modelsize / 1024}KB\n'
+            f'  areasize: ~{areasize / 1024}KB\n'
+            f'  total: ~{total / 1024}KB'
+        )
 
     def save(self, filepath):
         with open(filepath, "wb") as fp:
