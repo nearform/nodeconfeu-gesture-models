@@ -14,7 +14,8 @@ dataset = AccelerationReader({
     },
     test_ratio=0, validation_ratio=0.25,
     classnames=['nothing', 'clap2', 'upup', 'swiperight', 'swipeleft'],
-    input_shape='1d')
+    input_shape='1d',
+    mask_dimention=True)
 
 model = keras.Sequential()
 model.add(keras.Input(shape=(50, 4), name='acceleration'))

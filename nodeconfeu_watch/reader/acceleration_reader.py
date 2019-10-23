@@ -46,7 +46,7 @@ class AccelerationReader:
                  input_dtype='float32',
                  input_shape='2d',
                  output_dtype='int32',
-                 mask_dimention=True,
+                 mask_dimention=False,
                  max_observaions_per_group=None,
                  seed=0):
         self.files = files

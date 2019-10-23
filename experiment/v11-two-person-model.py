@@ -13,8 +13,7 @@ dataset = AccelerationReader({
         "conor": ['./data/conor-v2']
     },
     test_ratio=0.2, validation_ratio=0.2,
-    classnames=['swiperight', 'swipeleft', 'upup', 'waggle', 'clap2', 'random'],
-    mask_dimention=False)
+    classnames=['swiperight', 'swipeleft', 'upup', 'waggle', 'clap2', 'random'])
 
 model = keras.Sequential()
 model.add(keras.Input(shape=(50, 1, 3), name='acceleration', dtype=dataset.train.x.dtype))
