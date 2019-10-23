@@ -2,11 +2,13 @@
 import os
 import re
 import math
+import itertools
 import os.path as path
-import numpy as np
-from collections import namedtuple
 
-Dataset = namedtuple('Dataset', ['x', 'y'])
+import numpy as np
+import pandas as pd
+
+from ._dataset import Dataset
 
 extract_name_and_length = re.compile(r'^([A-Z0-9]+)\(([0-9]+)\),', flags=re.IGNORECASE)
 
@@ -17,12 +19,16 @@ class AccelerationReader:
                  input_dtype='float32',
                  input_shape='2d',
                  output_dtype='int32',
+                 mask_dimention=True,
+                 max_observaions_per_class=None,
                  seed=0):
         self.dirname = dirname
         self.seed = seed
         self.input_dtype = input_dtype
         self.input_shape = input_shape
         self.output_dtype = output_dtype
+        self.mask_dimention = mask_dimention
+        self.max_observaions_per_class = max_observaions_per_class
 
         filepaths = [
             path.join(dirname, filename) \
@@ -43,12 +49,12 @@ class AccelerationReader:
             else max_sequence_length
 
         parser = self._parse_csv(filepaths)
-        x, y = self._as_numpy(parser)
+        self.all = self._as_numpy(parser)
         (
             self.train,
             self.validation,
             self.test
-        ) = self._stratified_split(x, y, test_ratio, validation_ratio)
+        ) = self._stratified_split(self.all.x, self.all.y, test_ratio, validation_ratio)
 
     def details(self):
         header = (
@@ -57,7 +63,9 @@ class AccelerationReader:
             f"    seed: {self.seed}\n"
             f"    dirname: {self.dirname}\n"
             f"    input_shape: {self.input_shape}\n"
+            f"    mask_dimention: {self.mask_dimention}\n"
             f"    max_sequence_length: {self.max_sequence_length}\n"
+            f"    max_observaions_per_class: {self.max_observaions_per_class}\n"
             f"\n"
             f"  observations:\n"
             f"    validation: {self.validation.y.shape[0]}\n"
@@ -77,6 +85,60 @@ class AccelerationReader:
             class_details.append(f"    [{class_id}] {class_name}: {class_count} ({ratio_str}%)")
 
         return (header + '\n'.join(class_details))
+
+    def savecsv(self, filepath, frequency=10):
+        if not self.mask_dimention:
+            raise ValueError('there must be a masked dimention to export to csv')
+
+        df_all_list = []
+        for subset in ['train', 'validation', 'test']:
+            data = getattr(self, subset)
+
+            x_nan_masked = data.x.reshape(data.x.shape[0], self.max_sequence_length, 4)
+            x_nan_masked[x_nan_masked[:, :, 3] == 0, 0:3] = np.nan
+
+            df_subset = pd.DataFrame(
+                x_nan_masked.reshape(x_nan_masked.shape[0], -1),
+                columns = itertools.chain.from_iterable((
+                    [f'{i}.x', f'{i}.y', f'{i}.z', f'{i}.m'] \
+                        for i in range(self.max_sequence_length)
+                ))
+            )
+            df_subset = df_subset.assign(
+                label = pd.Series(data.y).map(
+                    { token_id: token for token_id, token in enumerate(self.classnames) }
+                ),
+                subset = subset
+            )
+            df_all_list.append(df_subset)
+
+        df = pd.concat(df_all_list)
+        df = df.assign(
+            id = range(len(df))
+        )
+
+        # Convert wide format to long format
+        df = pd.melt(
+            df,
+            id_vars=['subset', 'label', 'id'],
+            var_name='time.dim',
+            value_name='acceleration'
+        )
+        df_time_dim = df['time.dim'].str.split('.', expand=True)
+        df = df.assign(
+            time = pd.to_numeric(df_time_dim[0]) / frequency,
+            dimension = df_time_dim[1]
+        ).drop(['time.dim'], axis=1)
+
+        # Remove mask dimension and nan values
+        df = df.dropna(subset=['acceleration'])
+        df = df[df['dimension'] != 'm']
+
+        # Sort data for easy inspection
+        df = df.sort_values(by=['id', 'time', 'dimension'])
+
+        # Save dataframe
+        df.to_csv(filepath, index=False)
 
     def _infer_dataset_properties(self, filepaths):
         classnames = set()
@@ -133,7 +195,10 @@ class AccelerationReader:
         if self.input_shape == '2d':
             x_numpy = x_numpy[:, :, np.newaxis, :]
 
-        return (x_numpy, y_numpy)
+        if not self.mask_dimention:
+            x_numpy = x_numpy[..., 0:3]
+
+        return Dataset(x_numpy, y_numpy)
 
     def _stratified_split(self, x, y, test_ratio=0, validation_ratio=0):
         train_x, train_y = [], []
@@ -146,6 +211,9 @@ class AccelerationReader:
             # subset observations for this value
             x_subset = x[y == value, ...]
             num_obs = x_subset.shape[0]
+            if self.max_observaions_per_class and num_obs > self.max_observaions_per_class:
+                x_subset = x_subset[-self.max_observaions_per_class:, ...]
+                num_obs = self.max_observaions_per_class
 
             # calculate dataset sizes
             validation_size = math.ceil(num_obs * validation_ratio)
