@@ -8,9 +8,12 @@ from nodeconfeu_watch.convert import ExportModel
 
 tf.random.set_seed(1)
 
-dataset = AccelerationReader('./data/james-v2', test_ratio=0.2, validation_ratio=0.2,
-                              classnames=['swiperight', 'swipeleft', 'upup', 'waggle', 'clap2'],
-                              mask_dimention=False)
+dataset = AccelerationReader({
+        "james": './data/james-v2'
+    },
+    test_ratio=0.2, validation_ratio=0.2,
+    classnames=['swiperight', 'swipeleft', 'upup', 'waggle', 'clap2'],
+    mask_dimention=False)
 
 model = keras.Sequential()
 model.add(keras.Input(shape=(50, 1, 3), name='acceleration', dtype=dataset.train.x.dtype))

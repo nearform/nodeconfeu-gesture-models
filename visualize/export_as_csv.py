@@ -4,10 +4,11 @@ import tensorflow.keras as keras
 
 from nodeconfeu_watch.reader import AccelerationReader
 
-conor_dataset = AccelerationReader('./data/conor-v2', test_ratio=0.2, validation_ratio=0.2,
-                              classnames=['swiperight', 'swipeleft', 'upup', 'waggle', 'clap2'])
-conor_dataset.savecsv('./exports/conor.csv')
+dataset = AccelerationReader({
+        "james": ['./data/james-v2'],
+        "conor": ['./data/conor-v2']
+    },
+    test_ratio=0.2, validation_ratio=0.2,
+    classnames=['swiperight', 'swipeleft', 'upup', 'waggle', 'clap2', 'random'])
 
-conor_dataset = AccelerationReader('./data/james-v2', test_ratio=0.2, validation_ratio=0.2,
-                              classnames=['swiperight', 'swipeleft', 'upup', 'waggle', 'clap2'])
-conor_dataset.savecsv('./exports/james.csv')
+dataset.savecsv('./exports/dataset.csv')

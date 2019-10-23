@@ -9,9 +9,12 @@ from nodeconfeu_watch.visual import plot_history, classification_report
 
 tf.random.set_seed(0)
 
-dataset = AccelerationReader('./data/gestures-v1', test_ratio=0, validation_ratio=0.25,
-                              classnames=['nothing', 'clap2', 'upup', 'swiperight', 'swipeleft'],
-                              input_shape='1d')
+dataset = AccelerationReader({
+        "gordon": './data/gordon-v1'
+    },
+    test_ratio=0, validation_ratio=0.25,
+    classnames=['nothing', 'clap2', 'upup', 'swiperight', 'swipeleft'],
+    input_shape='1d')
 
 model = keras.Sequential()
 model.add(keras.Input(shape=(50, 4), name='acceleration'))

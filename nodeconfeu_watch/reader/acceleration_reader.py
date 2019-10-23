@@ -4,41 +4,65 @@ import re
 import math
 import itertools
 import os.path as path
+from collections import namedtuple, defaultdict
 
 import numpy as np
 import pandas as pd
 
-from ._dataset import Dataset
-
 extract_name_and_length = re.compile(r'^([A-Z0-9]+)\(([0-9]+)\),', flags=re.IGNORECASE)
+Dataset = namedtuple('Dataset', ['x', 'y', 'person'])
+
+def _join_dataset(datasets):
+    x_all, y_all, person_all = zip(*datasets)
+    x = np.concatenate(x_all)
+    y = np.concatenate(y_all)
+    person = np.concatenate(person_all)
+    return Dataset(x, y, person)
+
+def _normalize_to_filepath_list(files):
+    normalized_files = defaultdict(list)
+
+    for person_name, files_or_directories in files.items():
+        for file_or_directory in files_or_directories:
+            if path.basename(file_or_directory).startswith('.'):
+                continue
+
+            if path.isfile(file_or_directory):
+                normalized_files[person_name].append(file_or_directory)
+            elif path.isdir(file_or_directory):
+                for filename in os.listdir(file_or_directory):
+                    if filename.startswith('.'):
+                        continue
+                    filepath = path.join(file_or_directory, filename)
+                    if path.isfile(filepath):
+                        normalized_files[person_name].append(filepath)
+
+    return normalized_files
 
 class AccelerationReader:
-    def __init__(self, dirname, test_ratio=0.1, validation_ratio=0.1,
+    def __init__(self, files, test_ratio=0.1, validation_ratio=0.1,
                  classnames=None,
                  max_sequence_length=50,
                  input_dtype='float32',
                  input_shape='2d',
                  output_dtype='int32',
                  mask_dimention=True,
-                 max_observaions_per_class=None,
+                 max_observaions_per_group=None,
                  seed=0):
-        self.dirname = dirname
+        self.files = files
         self.seed = seed
         self.input_dtype = input_dtype
         self.input_shape = input_shape
         self.output_dtype = output_dtype
         self.mask_dimention = mask_dimention
-        self.max_observaions_per_class = max_observaions_per_class
+        self.max_observaions_per_group = max_observaions_per_group
 
-        filepaths = [
-            path.join(dirname, filename) \
-            for filename \
-            in os.listdir(dirname) \
-            if not filename.startswith('.')
-        ]
+        normalized_files = _normalize_to_filepath_list(files)
 
         if classnames is None or max_sequence_length is None:
-            infered_classnames, infered_max_sequence_length = self._infer_dataset_properties(filepaths)
+            infered_classnames, infered_max_sequence_length = self._infer_dataset_properties(
+                itertools.chain.from_iterable(normalized_files.values())
+            )
 
         self.classnames = list(infered_classnames) \
             if classnames is None \
@@ -48,24 +72,31 @@ class AccelerationReader:
             if max_sequence_length is None \
             else max_sequence_length
 
-        parser = self._parse_csv(filepaths)
-        self.all = self._as_numpy(parser)
-        (
-            self.train,
-            self.validation,
-            self.test
-        ) = self._stratified_split(self.all.x, self.all.y, test_ratio, validation_ratio)
+        self.people_names = list(normalized_files.keys())
+
+        dataset_all = []
+        for person_name, filepaths in normalized_files.items():
+            parser = self._parse_csv(filepaths)
+            dataset_all.append(
+                self._as_numpy(parser, self.people_names.index(person_name))
+            )
+
+        self.all = _join_dataset(dataset_all)
+        (self.train,
+         self.validation,
+         self.test) = self._stratified_split(self.all, test_ratio, validation_ratio)
 
     def details(self):
         header = (
             f"Acceleration dataset:\n"
+            f"  files:\n"
+            f"\n"
             f"  properties:\n"
             f"    seed: {self.seed}\n"
-            f"    dirname: {self.dirname}\n"
             f"    input_shape: {self.input_shape}\n"
             f"    mask_dimention: {self.mask_dimention}\n"
             f"    max_sequence_length: {self.max_sequence_length}\n"
-            f"    max_observaions_per_class: {self.max_observaions_per_class}\n"
+            f"    max_observaions_per_group: {self.max_observaions_per_group}\n"
             f"\n"
             f"  observations:\n"
             f"    validation: {self.validation.y.shape[0]}\n"
@@ -108,6 +139,9 @@ class AccelerationReader:
                 label = pd.Series(data.y).map(
                     { token_id: token for token_id, token in enumerate(self.classnames) }
                 ),
+                person = pd.Series(data.person).map(
+                    { person_id: person_name for person_id, person_name in enumerate(self.people_names) }
+                ),
                 subset = subset
             )
             df_all_list.append(df_subset)
@@ -120,7 +154,7 @@ class AccelerationReader:
         # Convert wide format to long format
         df = pd.melt(
             df,
-            id_vars=['subset', 'label', 'id'],
+            id_vars=['subset', 'label', 'person', 'id'],
             var_name='time.dim',
             value_name='acceleration'
         )
@@ -177,7 +211,7 @@ class AccelerationReader:
                         np.asarray(self.classnames.index(name), dtype=self.output_dtype)
                     )
 
-    def _as_numpy(self, parser):
+    def _as_numpy(self, parser, person_index):
         x_list, y_list = [], []
         for input_data, target_index in parser:
             x_list.append(input_data)
@@ -198,47 +232,56 @@ class AccelerationReader:
         if not self.mask_dimention:
             x_numpy = x_numpy[..., 0:3]
 
-        return Dataset(x_numpy, y_numpy)
+        person_numpy = np.full(y_numpy.shape[0], person_index)
 
-    def _stratified_split(self, x, y, test_ratio=0, validation_ratio=0):
-        train_x, train_y = [], []
-        validation_x, validation_y = [], []
-        test_x, test_y = [], []
+        return Dataset(x_numpy, y_numpy, person_numpy)
+
+    def _stratified_split(self, dataset, test_ratio=0, validation_ratio=0):
+        train_x, train_y, train_person = [], [], []
+        validation_x, validation_y, validation_person = [], [], []
+        test_x, test_y, test_person = [], [], []
 
         # create stratified splits
         rng = np.random.RandomState(self.seed)
-        for value in range(len(self.classnames)):
-            # subset observations for this value
-            x_subset = x[y == value, ...]
-            num_obs = x_subset.shape[0]
-            if self.max_observaions_per_class and num_obs > self.max_observaions_per_class:
-                x_subset = x_subset[-self.max_observaions_per_class:, ...]
-                num_obs = self.max_observaions_per_class
+        for person_subset in range(len(self.people_names)):
+            for y_subset in range(len(self.classnames)):
+                # subset observations for this value
+                x_subset = dataset.x[
+                    np.logical_and(dataset.y == y_subset, dataset.person == person_subset),
+                    ...
+                ]
+                num_obs = x_subset.shape[0]
+                if self.max_observaions_per_group and num_obs > self.max_observaions_per_group:
+                    x_subset = x_subset[-self.max_observaions_per_group:, ...]
+                    num_obs = self.max_observaions_per_group
 
-            # calculate dataset sizes
-            validation_size = math.ceil(num_obs * validation_ratio)
-            test_size = math.ceil(num_obs * test_ratio)
-            train_size = num_obs - (validation_size + test_size)
+                # calculate dataset sizes
+                validation_size = math.ceil(num_obs * validation_ratio)
+                test_size = math.ceil(num_obs * test_ratio)
+                train_size = num_obs - (validation_size + test_size)
 
-            if train_size <= 0:
-                raise ValueError(
-                    f'too few observations of "{self.classnames[value]}" to split dataset')
+                if train_size <= 0:
+                    raise ValueError(
+                        f'too few observations of "{self.classnames[y_subset]}" to split dataset')
 
-            # generate permutated indices
-            indices = rng.permutation(num_obs)
+                # generate permutated indices
+                indices = rng.permutation(num_obs)
 
-            # append splits to final dataset
-            validation_x.append(x_subset[indices[0:validation_size]])
-            validation_y.append(np.full(validation_size, value, dtype=y.dtype))
+                # append splits to final dataset
+                validation_x.append(x_subset[indices[0:validation_size]])
+                validation_y.append(np.full(validation_size, y_subset, dtype=dataset.y.dtype))
+                validation_person.append(np.full(validation_size, person_subset, dtype=dataset.person.dtype))
 
-            test_x.append(x_subset[indices[validation_size:validation_size + test_size]])
-            test_y.append(np.full(test_size, value, dtype=y.dtype))
+                test_x.append(x_subset[indices[validation_size:validation_size + test_size]])
+                test_y.append(np.full(test_size, y_subset, dtype=dataset.y.dtype))
+                test_person.append(np.full(test_size, person_subset, dtype=dataset.person.dtype))
 
-            train_x.append(x_subset[indices[validation_size + test_size:]])
-            train_y.append(np.full(train_size, value, dtype=y.dtype))
+                train_x.append(x_subset[indices[validation_size + test_size:]])
+                train_y.append(np.full(train_size, y_subset, dtype=dataset.y.dtype))
+                train_person.append(np.full(train_size, person_subset, dtype=dataset.person.dtype))
 
         return (
-            Dataset(np.concatenate(train_x), np.concatenate(train_y)),
-            Dataset(np.concatenate(validation_x), np.concatenate(validation_y)),
-            Dataset(np.concatenate(test_x), np.concatenate(test_y))
+            Dataset(np.concatenate(train_x), np.concatenate(train_y), np.concatenate(train_person)),
+            Dataset(np.concatenate(validation_x), np.concatenate(validation_y), np.concatenate(validation_person)),
+            Dataset(np.concatenate(test_x), np.concatenate(test_y), np.concatenate(test_person))
         )
