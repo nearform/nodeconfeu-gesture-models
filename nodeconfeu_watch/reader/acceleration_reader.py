@@ -251,6 +251,11 @@ class AccelerationReader:
                     ...
                 ]
                 num_obs = x_subset.shape[0]
+
+                # There may be some combination of (person, y) that doesn't have any observations.
+                if num_obs == 0:
+                    continue
+
                 if self.max_observaions_per_group and num_obs > self.max_observaions_per_group:
                     x_subset = x_subset[-self.max_observaions_per_group:, ...]
                     num_obs = self.max_observaions_per_group
