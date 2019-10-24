@@ -12,7 +12,7 @@ except:
 
 thisdir = path.dirname(path.realpath(__file__))
 
-class KerasLearningGraph(keras.callbacks.Callback):
+class KerasLivePlot(keras.callbacks.Callback):
     def __init__(self, plot_interval=5, width=600, height=400):
         super().__init__()
         self.width = width
