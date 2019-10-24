@@ -1,0 +1,63 @@
+svg.ar-training-graph {
+    width: 100%;
+    shape-rendering: crispEdges;
+    font-size: 16px;
+  }
+
+  svg.ar-training-graph .tick text {
+    font-size: 14px;
+    fill: #505050;
+  }
+
+  svg.ar-training-graph .tick line {
+    stroke-width: 2;
+    stroke: #505050;
+  }
+
+  svg.ar-training-graph .background {
+    fill: #EBEBEB;
+  }
+
+  svg.ar-training-graph .facet {
+    font-size: 14px;
+  }
+
+  svg.ar-training-graph .facet-background {
+    fill: #D9D9D9;
+  }
+
+  svg.ar-training-graph path.line {
+    fill: none;
+    shape-rendering: geometricPrecision;
+    stroke-width: 1;
+  }
+
+  svg.ar-training-graph .grid line {
+    stroke: #fff;
+    stroke-width: 2;
+  }
+
+  svg.ar-training-graph .grid .minor line {
+    stroke-opacity: .5;
+  }
+
+  svg.ar-training-graph .grid text {
+    display: none;
+  }
+
+  svg.ar-training-graph .axis path,
+  svg.ar-training-graph .grid path {
+    display: none;
+  }
+
+  svg.ar-training-graph .axis.hide-axis {
+    display: none;
+  }
+
+  svg.ar-training-graph .legned rect {
+    fill: #EBEBEB;
+  }
+
+  svg.ar-training-graph .legned line {
+    stroke-width: 2;
+  }
