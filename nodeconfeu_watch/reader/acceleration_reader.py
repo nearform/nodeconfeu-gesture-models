@@ -109,7 +109,6 @@ class AccelerationReader:
         self.files = files
         self.seed = seed
         self.input_shape = input_shape
-        self.output_dtype = output_dtype
         self.mask_dimention = mask_dimention
         self.max_observaions_per_group = max_observaions_per_group
 
@@ -148,6 +147,7 @@ class AccelerationReader:
         files_details = []
         for person_name, files in self.files.items():
             files_details.append(f"    {person_name}: [{', '.join(files)}]")
+        files_str = '\n'.join(files_details)
 
         class_details = []
         class_labels = np.concatenate([self.train.y, self.validation.y, self.test.y])
@@ -157,11 +157,12 @@ class AccelerationReader:
             class_count = np.sum(class_labels == class_id)
             ratio_str = "%.1f" % ((class_count / observations) * 100)
             class_details.append(f"    [{class_id}] {class_name}: {class_count} ({ratio_str}%)")
+        class_str = '\n'.join(class_details)
 
         return (
             f"Acceleration dataset:\n"
             f"  files:\n"
-            f"{'\n'.join(files_details)}"
+            f"{files_str}\n"
             f"\n"
             f"  properties:\n"
             f"    seed: {self.seed}\n"
@@ -176,7 +177,7 @@ class AccelerationReader:
             f"    test: {self.test.y.shape[0]}\n"
             f"\n"
             f"  classes:\n"
-            f"{'\n'.join(class_details)}"
+            f"{class_str}\n"
         )
 
     def savecsv(self, filepath, frequency=10):
