@@ -13,6 +13,13 @@ except:
 thisdir = path.dirname(path.realpath(__file__))
 
 class KerasLivePlot(keras.callbacks.Callback):
+    """Makes an live-updating graph of the accuracy and loss.
+
+    Arguments:
+        plot_interval: backlog `plot_interval` epochs and then update the plot.
+        width: the width of the plot in pixels.
+        height: the height of the plot in pixels.
+    """
     def __init__(self, plot_interval=5, width=600, height=400):
         super().__init__()
         self.width = width

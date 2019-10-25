@@ -127,6 +127,32 @@ def _validate_flatbuffer_for_tflite_micro(model_bytes):
 
 
 class ExportModel:
+    """Export a keras model in TFLite format and assert for TFMicro.
+
+    This exports a keras in the TFLite format using
+    `tf.lite.TFLiteConverter.from_keras_model(model)`. The exported model
+    is by default quantize to (u)int8, although this can be disabled by
+    setting `quantize=False`.
+
+    For measureing the neuron activations needed for quantization, a
+    the `dataset.validation` is used.
+
+    Finally the model is asserted, first by using `tf.lite.Interpreter`
+    for TFLite compatibility. Then the flatbuffer is parsed and checked
+    for TFMicro compatibility. TFMicro supports less kernels than TFLite
+    and requires all shapes to be set. There may be additional restrictions
+    that are not asserted.
+
+    Finally the exported model can be saved with `exporter.save()`. You can also
+    get an approximate size estimate with `exporter.size_report()`.
+
+    Arguments:
+        model: fitted Keras model.
+        dataset: Dataset, should have an `validation` attribute with a named tuple
+            containing `x` and `y` attributes.
+        quantize: bool, should the exported model be quantized.
+        assert_export: bool, should the exported model be tested for compatibility.
+    """
     def __init__(self, model, dataset, quantize=True, assert_export=True):
         self._quantize = quantize
         self._model_bytes = _export_model(model, dataset, quantize)
@@ -154,6 +180,15 @@ class ExportModel:
         return total_areasize
 
     def size_report(self):
+        """Returns a size-report of the model as a printable string.
+
+        The size-report consists of:
+            modelsize: the exact size of the model
+            areasize: the sum of the size of all tensors.
+            total: modelsize and areasize added together.
+
+        Note that the areasize is an estimate.
+        """
         modelsize = self.modelsize()
         areasize = self.areasize()
         total = modelsize + areasize
@@ -166,6 +201,7 @@ class ExportModel:
         )
 
     def save(self, filepath):
+        """Saves the model at `filepath`."""
         with open(filepath, "wb") as fp:
             fp.write(self._model_bytes)
 
@@ -185,6 +221,7 @@ class ExportModel:
         return output
 
     def predict(self, input_tensor):
+        """Similar to model.predict(input_tensor) but uses the exported model."""
         interpreter = tf.lite.Interpreter(model_content=self._model_bytes)
         interpreter.allocate_tensors()
 

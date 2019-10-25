@@ -40,18 +40,74 @@ def _normalize_to_filepath_list(files):
     return normalized_files
 
 class AccelerationReader:
-    def __init__(self, files, test_ratio=0.1, validation_ratio=0.1,
+    """Reads and splits acceleration data.
+
+    Reads from pseudo-CSV files, described in the `files` arguments as
+    a dict of { person: [files_or_directories] }. It will do a stratified
+    split into train, validation, and test according to `validation_ratio`
+    and `test_ratio`. The stratified split groups the observations by
+    (person, gesture-name).
+
+    Each CSV file should look like
+
+       GestureName1(number_of_samples),x,y,z,x,y,z,...
+       GestureName1(number_of_samples),x,y,z,x,y,z,...
+       GestureName2(number_of_samples),x,y,z,x,y,z,...
+       GestureName2(number_of_samples),x,y,z,x,y,z,...
+
+    , where a sample is the (x,y,z) tuple.
+
+    It is recommended to also specify the `classnames`, this is a list
+    of gesture-names used to encode the target. Only observations where
+    the gesture-name is included in `classnames` are included. If
+    `classnames` is `None` they will be infered from the CSV files,
+    but this requires an extra parsing phase.
+
+    Each dataset are exposed as named tuples. `dataset.train`, `dataset.validation`,
+    and `dataset.test`, which each have `x` and `y` properties.
+
+    Arguments:
+        files: Dict, describes the relative location of all CSV files.
+        test_ratio: float, the ratio of test observations taken from each group
+            of (person, gesture).
+        validation_ratio: float, the ratio of validation observations taken from
+            each group of (person, gesture).
+        classnames: List[str], list of gesture-names as strings. Observatinos with
+            gesture-names not included will be ignored from the CSV files.
+        max_sequence_length: int, the max length of the sequences. If a sequence
+            is not long enogth, it will be padded with zero.
+        input_shape: either '1d' or '2d', if '2d' the
+            `x.shape = (obs, length, 1, dims). This is useful when using the Conv2D
+            kernel. If '1d' then `x.shape = (obs, length, dims).
+        mask_dimention: bool, adds a 4th mask feature to the x-vector. The mask
+            feature is 1 when a sample exists and 0 when for the padding.
+        max_observaions_per_group: int, if a group is over represented that can cause
+            issues, such as the model overlearning that group. Setting,
+            `max_observaions_per_group` can help with that, as it limits the
+            number of observations that a group can have.
+        seed: int, the RNG-seed used to sample observations into train, validation,
+            and test datasets.
+
+    Attributes:
+        train: Dataset(x, y), named tuple with the train data.
+        validation: Dataset(x, y), named tuple with the validation data.
+        test: Dataset(x, y), named tuple with the test data.
+        classnames: List[str], list of classnames, can be used to decode the
+            target/prediction labels.
+        max_sequence_length: int, the length of sequences in the dataset,
+            although.
+    """
+
+    def __init__(self, files,
+                 test_ratio=0.1, validation_ratio=0.1,
                  classnames=None,
                  max_sequence_length=50,
-                 input_dtype='float32',
                  input_shape='2d',
-                 output_dtype='int32',
                  mask_dimention=False,
                  max_observaions_per_group=None,
                  seed=0):
         self.files = files
         self.seed = seed
-        self.input_dtype = input_dtype
         self.input_shape = input_shape
         self.output_dtype = output_dtype
         self.mask_dimention = mask_dimention
@@ -87,9 +143,25 @@ class AccelerationReader:
          self.test) = self._stratified_split(self.all, test_ratio, validation_ratio)
 
     def details(self):
-        header = (
+        """Returns a description of the datasets as a printable string."""
+
+        files_details = []
+        for person_name, files in self.files.items():
+            files_details.append(f"    {person_name}: [{', '.join(files)}]")
+
+        class_details = []
+        class_labels = np.concatenate([self.train.y, self.validation.y, self.test.y])
+        observations = class_labels.shape[0]
+        for class_id in range(len(self.classnames)):
+            class_name = self.classnames[class_id]
+            class_count = np.sum(class_labels == class_id)
+            ratio_str = "%.1f" % ((class_count / observations) * 100)
+            class_details.append(f"    [{class_id}] {class_name}: {class_count} ({ratio_str}%)")
+
+        return (
             f"Acceleration dataset:\n"
             f"  files:\n"
+            f"{'\n'.join(files_details)}"
             f"\n"
             f"  properties:\n"
             f"    seed: {self.seed}\n"
@@ -104,20 +176,21 @@ class AccelerationReader:
             f"    test: {self.test.y.shape[0]}\n"
             f"\n"
             f"  classes:\n"
+            f"{'\n'.join(class_details)}"
         )
 
-        class_details = []
-        class_labels = np.concatenate([self.train.y, self.validation.y, self.test.y])
-        observations = class_labels.shape[0]
-        for class_id in range(len(self.classnames)):
-            class_name = self.classnames[class_id]
-            class_count = np.sum(class_labels == class_id)
-            ratio_str = "%.1f" % ((class_count / observations) * 100)
-            class_details.append(f"    [{class_id}] {class_name}: {class_count} ({ratio_str}%)")
-
-        return (header + '\n'.join(class_details))
-
     def savecsv(self, filepath, frequency=10):
+        """Save all dataset as a single csv file in long-format
+
+        The CSV file will have the columns:
+            * subset
+            * label
+            * person
+            * id
+            * acceleration
+            * time
+            * dimension
+        """
         if not self.mask_dimention:
             raise ValueError('there must be a masked dimention to export to csv')
 
@@ -207,8 +280,8 @@ class AccelerationReader:
 
                     name_and_length, *values = map(str.strip, line.split(','))
                     yield (
-                        np.fromiter(map(int, values), dtype=self.input_dtype).reshape(-1, 3),
-                        np.asarray(self.classnames.index(name), dtype=self.output_dtype)
+                        np.fromiter(map(int, values), dtype=np.float32).reshape(-1, 3),
+                        np.asarray(self.classnames.index(name), dtype=np.int32)
                     )
 
     def _as_numpy(self, parser, person_index):
