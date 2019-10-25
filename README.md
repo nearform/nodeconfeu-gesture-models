@@ -8,5 +8,5 @@ python3 setup.py develop
 ## Run
 
 ```sheel
-python3 experiment/v4-aconv-model.py
+python3 experiment/v11-two-person-model.py
 ```
