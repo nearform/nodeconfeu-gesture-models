@@ -10,14 +10,15 @@ import numpy as np
 import pandas as pd
 
 extract_name_and_length = re.compile(r'^([A-Z0-9]+)\(([0-9]+)\),', flags=re.IGNORECASE)
-Dataset = namedtuple('Dataset', ['x', 'y', 'person'])
+Dataset = namedtuple('Dataset', ['x', 'y', 'person', 'mask'])
 
 def _join_dataset(datasets):
-    x_all, y_all, person_all = zip(*datasets)
+    x_all, y_all, person_all, mask_all = zip(*datasets)
     x = np.concatenate(x_all)
     y = np.concatenate(y_all)
     person = np.concatenate(person_all)
-    return Dataset(x, y, person)
+    mask = np.concatenate(mask_all)
+    return Dataset(x, y, person, mask)
 
 def _normalize_to_filepath_list(files):
     normalized_files = defaultdict(list)
@@ -192,20 +193,20 @@ class AccelerationReader:
             * time
             * dimension
         """
-        if not self.mask_dimention:
-            raise ValueError('there must be a masked dimention to export to csv')
+        if self.mask_dimention:
+            raise ValueError('mask_dimention must be false to export the dataframe')
 
         df_all_list = []
         for subset in ['train', 'validation', 'test']:
             data = getattr(self, subset)
 
-            x_nan_masked = data.x.reshape(data.x.shape[0], self.max_sequence_length, 4)
-            x_nan_masked[x_nan_masked[:, :, 3] == 0, 0:3] = np.nan
+            x_nan_masked = np.squeeze(data.x)
+            x_nan_masked[np.squeeze(data.mask) == 0, :] = np.nan
 
             df_subset = pd.DataFrame(
                 x_nan_masked.reshape(x_nan_masked.shape[0], -1),
                 columns = itertools.chain.from_iterable((
-                    [f'{i}.x', f'{i}.y', f'{i}.z', f'{i}.m'] \
+                    [f'{i}.x', f'{i}.y', f'{i}.z'] \
                         for i in range(self.max_sequence_length)
                 ))
             )
@@ -302,27 +303,28 @@ class AccelerationReader:
         if self.input_shape == '2d':
             x_numpy = x_numpy[:, :, np.newaxis, :]
 
+        mask_numpy = x_numpy[..., 3]
+
         if not self.mask_dimention:
             x_numpy = x_numpy[..., 0:3]
 
         person_numpy = np.full(y_numpy.shape[0], person_index)
 
-        return Dataset(x_numpy, y_numpy, person_numpy)
+        return Dataset(x_numpy, y_numpy, person_numpy, mask_numpy)
 
     def _stratified_split(self, dataset, test_ratio=0, validation_ratio=0):
-        train_x, train_y, train_person = [], [], []
-        validation_x, validation_y, validation_person = [], [], []
-        test_x, test_y, test_person = [], [], []
+        train_x, train_y, train_person, train_mask = [], [], [], []
+        validation_x, validation_y, validation_person, validation_mask = [], [], [], []
+        test_x, test_y, test_person, test_mask = [], [], [], []
 
         # create stratified splits
         rng = np.random.RandomState(self.seed)
         for person_subset in range(len(self.people_names)):
             for y_subset in range(len(self.classnames)):
                 # subset observations for this value
-                x_subset = dataset.x[
-                    np.logical_and(dataset.y == y_subset, dataset.person == person_subset),
-                    ...
-                ]
+                subset_selector = np.logical_and(dataset.y == y_subset, dataset.person == person_subset)
+                x_subset = dataset.x[subset_selector, ...]
+                mask_subset = dataset.mask[subset_selector, ...]
                 num_obs = x_subset.shape[0]
 
                 # There may be some combination of (person, y) that doesn't have any observations.
@@ -349,17 +351,23 @@ class AccelerationReader:
                 validation_x.append(x_subset[indices[0:validation_size]])
                 validation_y.append(np.full(validation_size, y_subset, dtype=dataset.y.dtype))
                 validation_person.append(np.full(validation_size, person_subset, dtype=dataset.person.dtype))
+                validation_mask.append(mask_subset[indices[0:validation_size]])
 
                 test_x.append(x_subset[indices[validation_size:validation_size + test_size]])
                 test_y.append(np.full(test_size, y_subset, dtype=dataset.y.dtype))
                 test_person.append(np.full(test_size, person_subset, dtype=dataset.person.dtype))
+                test_mask.append(mask_subset[indices[validation_size:validation_size + test_size]])
 
                 train_x.append(x_subset[indices[validation_size + test_size:]])
                 train_y.append(np.full(train_size, y_subset, dtype=dataset.y.dtype))
                 train_person.append(np.full(train_size, person_subset, dtype=dataset.person.dtype))
+                train_mask.append(mask_subset[indices[validation_size + test_size:]])
 
         return (
-            Dataset(np.concatenate(train_x), np.concatenate(train_y), np.concatenate(train_person)),
-            Dataset(np.concatenate(validation_x), np.concatenate(validation_y), np.concatenate(validation_person)),
-            Dataset(np.concatenate(test_x), np.concatenate(test_y), np.concatenate(test_person))
+            Dataset(np.concatenate(train_x), np.concatenate(train_y),
+                    np.concatenate(train_person), np.concatenate(train_mask)),
+            Dataset(np.concatenate(validation_x), np.concatenate(validation_y),
+                    np.concatenate(validation_person), np.concatenate(validation_mask)),
+            Dataset(np.concatenate(test_x), np.concatenate(test_y),
+                    np.concatenate(test_person), np.concatenate(test_mask))
         )

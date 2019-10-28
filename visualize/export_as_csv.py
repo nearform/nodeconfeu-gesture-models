@@ -9,7 +9,6 @@ dataset = AccelerationReader({
         "conor": ['./data/conor-v2']
     },
     test_ratio=0.2, validation_ratio=0.2,
-    classnames=['swiperight', 'swipeleft', 'upup', 'waggle', 'clap2', 'random'],
-    mask_dimention=True)
+    classnames=['swiperight', 'swipeleft', 'upup', 'waggle', 'clap2', 'random'])
 
 dataset.dataframe().to_csv('./exports/dataset.csv', index=False)
