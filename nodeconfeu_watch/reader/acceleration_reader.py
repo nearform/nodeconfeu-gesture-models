@@ -180,10 +180,10 @@ class AccelerationReader:
             f"{class_str}\n"
         )
 
-    def savecsv(self, filepath, frequency=10):
-        """Save all dataset as a single csv file in long-format
+    def dataframe(self, frequency=10):
+        """Save all dataset as a single dataframe file in long-format
 
-        The CSV file will have the columns:
+        The dataframe file have the columns:
             * subset
             * label
             * person
@@ -245,8 +245,7 @@ class AccelerationReader:
         # Sort data for easy inspection
         df = df.sort_values(by=['id', 'time', 'dimension'])
 
-        # Save dataframe
-        df.to_csv(filepath, index=False)
+        return df
 
     def _infer_dataset_properties(self, filepaths):
         classnames = set()

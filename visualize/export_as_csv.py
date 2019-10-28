@@ -12,4 +12,4 @@ dataset = AccelerationReader({
     classnames=['swiperight', 'swipeleft', 'upup', 'waggle', 'clap2', 'random'],
     mask_dimention=True)
 
-dataset.savecsv('./exports/dataset.csv')
+dataset.dataframe().to_csv('./exports/dataset.csv', index=False)
