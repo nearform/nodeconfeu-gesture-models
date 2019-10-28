@@ -200,7 +200,7 @@ class AccelerationReader:
         for subset in ['train', 'validation', 'test']:
             data = getattr(self, subset)
 
-            x_nan_masked = np.squeeze(data.x)
+            x_nan_masked = np.squeeze(data.x.copy())
             x_nan_masked[np.squeeze(data.mask) == 0, :] = np.nan
 
             df_subset = pd.DataFrame(
