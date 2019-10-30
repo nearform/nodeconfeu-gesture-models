@@ -1,5 +1,6 @@
 
 import math
+import base64
 import numpy as np
 import tensorflow as tf
 
@@ -28,7 +29,7 @@ tensor_type_bits = {
   "UINT8": 8,
   "INT64": 64,
   "STRING": np.nan,
-  "BOOL": 1,
+  "BOOL": 8,
   "INT16": 16,
   "COMPLEX64": 64,
   "INT8": 8
@@ -173,9 +174,9 @@ class ExportModel:
             tensor_shape = tensor.ShapeAsNumpy()
             tensor_type = tensor_type_code_lookup[tensor.Type()]
 
-            tensor_size_bits = np.prod(tensor_shape) * tensor_type_bits[tensor_type]
-            tensor_size_bytes = math.ceil(tensor_size_bits / 32) * 4 # round up to nearst 32bit-word
-            total_areasize += tensor_size_bytes
+            tensor_size_bytes = np.prod(tensor_shape) * tensor_type_bits[tensor_type] // 8
+            tensor_size_bytes_aligned = tensor_size_bytes + (16 - (tensor_size_bytes % 16))
+            total_areasize += tensor_size_bytes_aligned
 
         return total_areasize
 
@@ -204,6 +205,9 @@ class ExportModel:
         """Saves the model at `filepath`."""
         with open(filepath, "wb") as fp:
             fp.write(self._model_bytes)
+
+    def base64(self):
+        return base64.b64encode(self._model_bytes).decode('utf-8')
 
     def evaluate_zeros_input(self):
         interpreter = tf.lite.Interpreter(model_content=self._model_bytes)
