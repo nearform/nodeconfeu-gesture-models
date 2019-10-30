@@ -115,10 +115,9 @@ class AccelerationReader:
 
         normalized_files = _normalize_to_filepath_list(files)
 
-        if classnames is None or max_sequence_length is None:
-            infered_classnames, infered_max_sequence_length = self._infer_dataset_properties(
-                itertools.chain.from_iterable(normalized_files.values())
-            )
+        infered_classnames, infered_max_sequence_length = self._infer_dataset_properties(
+            itertools.chain.from_iterable(normalized_files.values())
+        )
 
         self.classnames = list(infered_classnames) \
             if classnames is None \
@@ -127,6 +126,12 @@ class AccelerationReader:
         self.max_sequence_length = infered_max_sequence_length \
             if max_sequence_length is None \
             else max_sequence_length
+
+        if infered_max_sequence_length > self.max_sequence_length:
+            raise ValueError(
+                f'max_sequence_length in AccelerationReader is too short, '
+                f'must be {infered_max_sequence_length} or higher'
+            )
 
         self.people_names = list(normalized_files.keys())
 
